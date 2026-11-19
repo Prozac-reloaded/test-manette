@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="fr" data-bs-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tech-Cleaner – Banc de test manettes</title>
+
+<link id="bootstrap-css" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+      integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+      crossorigin="anonymous">
+
+<link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.6.0/css/fontawesome.min.css"
+      integrity="sha384-NvKbDTEnL+A8F/AA5Tc5kmMLSJHUO868P+lDtTpJIeQdGYaUIuLr4lVGOEA1OcMy"
+      crossorigin="anonymous">
+
+<link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.6.0/css/all.min.css"
+      integrity="sha384-h/hnnw1Bi4nbpD6kE7nYfCXzovi622sY5WBxww8ARKwpdLj5kUWjRuyiXaD1U2JT"
+      crossorigin="anonymous">
+
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"
+        integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+        crossorigin="anonymous"></script>
+
+<meta http-equiv="Permissions-Policy" content="interest-cohort=()">
+<script type="module" src="js/core.js"></script>
+
+<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png">
+<link rel="manifest" href="/site.webmanifest">
+
+<link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+<link rel="shortcut icon" href="/favicon.ico" />
+<meta name="apple-mobile-web-app-title" content="Tech-Cleaner" />
+
+<!-- External CSS files -->
+<link rel="stylesheet" href="css/main.css">
+<link rel="stylesheet" href="css/finetune.css">
+<style>
+  /* Tech-Cleaner : version atelier / version client */
+  .tc-client-only { display: none !important; }
+  .tc-client div.tc-client-only { display: block !important; }
+  .tc-client span.tc-client-only { display: inline !important; }
+  .tc-client .tc-atelier-only { display: none !important; }
+  .tc-client body { padding-bottom: 140px; }
+  .tcc-step { display: flex; gap: .6rem; align-items: flex-start; padding: .5rem 0; border-bottom: 1px solid var(--bs-border-color); }
+  .tcc-step:last-child { border-bottom: 0; }
+  .tcc-step .num { font-size: 1.1rem; width: 1.4rem; text-align: center; }
+</style>
+<script>
+  // Applique le mode client avant l'affichage (évite un clignotement)
+  (function () {
+    var clientHosts = ['test-manette.techcleaner.fr'];
+    if (clientHosts.indexOf(location.hostname) >= 0 || /[?&]client(=|&|$)/.test(location.search)) {
+      document.documentElement.classList.add('tc-client');
+    }
+  })();
+</script>
+
+</head>
+<body>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+
+  <nav class="navbar bg-body-tertiary navbar-expand-md bg-body-tertiary">
+    <div class="container-fluid">
+      <a class="navbar-brand" href="https://techcleaner.fr" target="_blank"><b>Tech-Cleaner</b> <span class="text-muted fs-6 tc-atelier-only">· Banc de test manettes</span><span class="text-muted fs-6 tc-client-only">· Testez votre manette</span></a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNavDropdown" aria-controls="navbarNavDropdown" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+
+      <div class="collapse navbar-collapse container-fluid justify-content-end" id="navbarNavDropdown">
+
+        <ul class="navbar-nav">
+          <li class="nav-item tc-atelier-only">
+            <a class="nav-link ds-i18n" href="#" onclick="show_faq_modal();">Frequently Asked Questions</a>
+          </li>
+          <li class="nav-item dropdown" id="navbarNavAltMarkup">
+            <a class="nav-link dropdown-toggle" id="langMenuButton" role="button" href="#" data-bs-toggle="dropdown" aria-expanded="false" aria-haspopup="true">
+              <svg class="bi text-secondary" width="1.5em" height="1.5em" ><use xlink:href="#lang"/></svg>&nbsp;<span id="curLang">English</span>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="langMenuButton"  id="availLangs" style="max-height:70vh; overflow-y:auto;">
+            </ul>
+          </li>
+        </ul>
+      </div>
+      <div>
+      <li class="nav-item align-items-center d-flex" >
+        <i class="fas fa-sun"></i>
+        <div class="ms-2 form-check form-switch">
+          <input class="form-check-input" type="checkbox" role="switch" id="colorModeSwitch" />
+        </div>
+        <i class="fas fa-moon"></i>
+      </li>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container p-2">
+
+    <!-- Unsupported Browser Warning -->
+    <div id="missinghid" style="bottom: 80px; left: 0; right: 0; z-index: 1030; padding: 12px 20px; display: none;">
+      <div class="container">
+        <div style="border: 2px solid var(--bs-link-color); border-radius: 8px; color: var(--bs-link-color); padding: 12px; background-color: var(--bs-body-bg);">
+          <p class="mb-1">
+            <i class="fas fa-hand"></i>&nbsp;&nbsp;
+            <span class="ds-i18n">Unsupported browser.</span>
+          </p>
+          <p class="mb-1">
+            <span class="ds-i18n">Please use a web browser with WebHID support (e.g. Google Chrome or Microsoft Edge) on a PC or Mac.</span>
+            <span class="ds-i18n">Firefox is supported with the WebHID extension installed.</span>
+          </p>
+          <p class="mb-0">
+            <span class="ds-i18n">Using this utility on a phone or tablet is not supported.</span>
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div id="offlinebar" class="vstack p-2" style="display: none;">
+      <div class="tc-client-only mb-3">
+        <h1 class="h3 mb-2">Testez votre manette PlayStation gratuitement</h1>
+        <p class="mb-2">Drift des joysticks, boutons, gâchettes, vibrations, micro… En quelques minutes, vérifiez l'état de votre manette
+          <b>PS4 (DualShock 4), PS5 (DualSense) ou DualSense Edge</b> et obtenez un pré-diagnostic avec la réparation conseillée.</p>
+        <ul class="small mb-2">
+          <li>Sur un <b>ordinateur</b> (PC ou Mac) avec <b>Google Chrome</b> ou <b>Microsoft Edge</b>. Les téléphones et tablettes ne sont pas compatibles.</li>
+          <li>Branchez la manette <b>avec un câble USB</b> (le Bluetooth ne suffit pas), puis cliquez sur « Connecter ».</li>
+          <li>Le test ne modifie rien dans votre manette.</li>
+        </ul>
+        <p class="small text-muted mb-0">Client Tech-Cleaner équipé de joysticks TMR ? Après connexion, utilisez la rubrique « Recalibrage TMR » avec le code figurant sur votre rapport.</p>
+      </div>
+      <p class="ds-i18n tc-atelier-only">Please connect a DualShock 4, a DualSense, DualSense Edge or VR2 controller to your computer and press Connect.</p>
+      <button id="btnconnect" type="button" class="btn btn-outline-primary" onclick="connect()">
+        <span class="spinner-border spinner-border-sm" style="display: none;" id="connectspinner" aria-hidden="true"></span>
+        <span class="ds-i18n">Connect</span>
+      </button>
+      <br>
+    </div>
+
+    <div id="onlinebar" class="vstack p-2" style="display: none;">
+      <div class="row">
+        <div class="col-sm-9 hstack">
+          <p><b class="ds-i18n">Connected to:</b></p>&nbsp;<p id="devname"></p>
+        </div>
+        <div class="col-sm-3">
+          <p id="d-bat" style="text-align: right;"></p>
+        </div>
+      </div>
+      <button type="button" class="btn btn-outline-secondary ds-i18n" onclick="disconnect()">Disconnect</button><br>
+    </div>
+
+    <div id="mainmenu" class="container" style="display: none;">
+      <ul class="nav nav-tabs mb-3 tc-atelier-only" id="mainTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="controller-tab" data-bs-toggle="tab" data-bs-target="#controller-content" type="button" role="tab" aria-controls="controller-content" aria-selected="true">
+            <i class="fas fa-gamepad"></i>&nbsp;&nbsp;<span class="ds-i18n">Calibration</span>
+          </button>
+        </li>
+        <!-- <li class="nav-item" role="presentation">
+          <button class="nav-link" id="tests-tab" data-bs-toggle="tab" data-bs-target="#tests-content" type="button" role="tab" aria-controls="tests-content" aria-selected="false">
+            <i class="fas fa-vial"></i>&nbsp;&nbsp;<span class="ds-i18n">Tests</span>
+          </button>
+        </li> -->
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="info-tab" data-bs-toggle="tab" data-bs-target="#info-content" type="button" role="tab" aria-controls="info-content" aria-selected="false">
+            <i class="fas fa-info-circle"></i>&nbsp;&nbsp;<span class="ds-i18n">Info</span>
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="debug-tab" data-bs-toggle="tab" data-bs-target="#debug-content" type="button" role="tab" aria-controls="debug-content" aria-selected="false">
+            <i class="fas fa-bug"></i>&nbsp;&nbsp;<span class="ds-i18n">Debug</span>
+          </button>
+        </li>
+      </ul>
+
+      <div class="tab-content" id="mainTabsContent">
+        <div class="tab-pane show active" id="controller-content" role="tabpanel" aria-labelledby="controller-tab">
+          <!-- Main page content (controller info, calibration, joystick info) -->
+          <div class="row">
+            <div class="col-md-6 col-sm-12">
+              <div class="card">
+                <div class="card-header"><i class="fas fa-gamepad"></i>&nbsp;&nbsp;<span class="ds-i18n">Controller Info</span></div>
+                <div class="card-body">
+                  <dl class="row px-3 py-2" id="fwinfo"></dl>
+                  <span id="infoshowall" class="pb-4 px-4 row tc-atelier-only">
+                    <button class="btn btn-outline-secondary" onclick="show_info_tab()"><i class="fas fa-plus me-1"></i> <span class="ds-i18n">Show all</span></button>
+                  </span>
+                  </div>
+              </div>
+              <br>
+
+              <div class="d-flex justify-content-end gap-2 tc-atelier-only">
+                <div class="d-flex" id="quick-tests-div">
+                  <button type="button" class="btn btn-outline-primary ds-btn mb-3" onclick="show_quick_test_modal()" id="quick-test-btn">
+                    <i class="fas fa-vial" id="quick-test-icon"></i>&nbsp;&nbsp;
+                    <span id="quick-test-text" class="ds-i18n">Quick Test</span>
+                  </button>
+                </div>
+                <button type="button" class="btn btn-success ds-btn mb-3" onclick="tc_open_report_modal()" id="tc-report-btn">
+                  <i class="fas fa-file-circle-check"></i>&nbsp;&nbsp;Rapport Tech-Cleaner
+                </button>
+              </div>
+
+              <div class="text-center mx-3" id="controller-svg-container">
+                <!-- DualSense 5 Controller SVG loaded from template -->
+                <div id="controller-svg-placeholder"></div>
+              </div>
+            </div>
+
+            <div class="col-md-6 col-sm-12 tc-atelier-only" style="min-width: 330px;" id="calib-column">
+              <div class="vstack gap-2 p-2">
+                <button type="button" class="btn btn-primary ds-btn" onclick="calibrate_stick_centers()" id="four-step-center-calib" style="display: none;">
+                  <span class="ds-i18n">Calibrate stick center</span>
+                </button>
+                <div class="btn-group w-100" role="group" style="display: none;" id="quick-center-calib-group">
+                  <button type="button" class="btn btn-primary ds-btn flex-grow-1" onclick="executeSelectedCenterCalibration()" id="quick-center-calib">
+                    <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+                    <span class="ds-i18n">Calibrate stick center</span>
+                  </button>
+                  <button type="button" class="btn btn-primary ds-btn dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false" style="flex: 0 0 35px;">
+                    <span class="visually-hidden">Toggle dropdown</span>
+                  </button>
+                  <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="#" onclick="setCenterCalibrationMethod('quick', event)">
+                      <i class="fas fa-check me-2" id="check-quick" style="display: none;"></i><span class="ds-i18n">Use quick calibration</span>
+                    </a></li>
+                    <li><a class="dropdown-item" href="#" onclick="setCenterCalibrationMethod('four-step', event)">
+                      <i class="fas fa-check me-2" id="check-four-step"></i><span class="ds-i18n">Use four-step calibration</span>
+                    </a></li>
+                  </ul>
+                </div>
+                <div class="btn-group w-100" role="group" id="range-calib-group">
+                  <button type="button" class="btn btn-primary ds-btn flex-grow-1" onclick="executeSelectedRangeCalibration()" id="range-calib">
+                    <span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span>
+                    <span class="ds-i18n">Calibrate stick range</span>
+                  </button>
+                  <button type="button" class="btn btn-primary ds-btn dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false" style="flex: 0 0 35px;">
+                    <span class="visually-hidden">Toggle dropdown</span>
+                  </button>
+                  <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="#" onclick="setRangeCalibrationMethod('normal', event)">
+                      <i class="fas fa-check me-2" id="check-range-normal"></i><span class="ds-i18n">Use normal mode</span>
+                    </a></li>
+                    <li><a class="dropdown-item" href="#" onclick="setRangeCalibrationMethod('expert', event)">
+                      <i class="fas fa-check me-2" id="check-range-expert" style="display: none;"></i><span class="ds-i18n">Use expert mode</span>
+                    </a></li>
+                  </ul>
+                </div>
+                <button type="button" class="btn btn-primary ds-btn" onclick="ds5_finetune()" id="ds5finetune">
+                  <span class="ds-i18n">Finetune stick calibration</span>
+                </button>
+                <hr>
+                <button id="savechanges" type="button" class="btn btn-success ds-btn ds-i18n" onclick="flash_all_changes()">Save changes permanently</button>
+                <button id="restore-calibration-btn" type="button" class="btn btn-secondary ds-btn ds-i18n" onclick="openCalibrationHistoryModal()">Restore calibration</button>
+                <button type="button" class="btn btn-danger ds-btn ds-i18n" onclick="reboot_controller()" id="resetBtn">Reboot controller</button>
+
+                <div class="card" >
+                  <div class="card-header"><i class="fas fa-crosshairs"></i>&nbsp;&nbsp;<span class="ds-i18n">Joystick Info</span></div>
+                  <div class="vstack px-2">
+                    <center>
+                      <div style="position: relative; display: inline-block;">
+                        <canvas id="stickCanvas" width="300" height="150"></canvas>
+                        <svg
+                          id="circularityCheckIcon" class="bi" width="32" height="32"
+                          style="cursor: pointer; color: #ff4000cb; position: absolute; top: 25px; right: -30px; display: none;"
+                          onclick="show_circularity_warning()"
+                        >
+                          <use xlink:href="#info"/></svg>
+                      </div>
+                    </center>
+                  </div>
+                  <div class="px-2">
+                    <div class="hstack">
+                      <div class="vstack" style="text-align: center;">
+                        <span>LX:</span>
+                        <pre id="lx-lbl" style="min-width: 80px;"></pre>
+                      </div>
+
+                      <div class="vstack" style="text-align: center;">
+                        <span>LY:</span>
+                        <pre id="ly-lbl" style="min-width: 80px;"></pre>
+                      </div>
+
+                      <div id="stick-item-rx" class="vstack" style="text-align: center;">
+                        <span>RX:</span>
+                        <pre id="rx-lbl" style="min-width: 80px;"></pre>
+                      </div>
+
+                      <div id="stick-item-ry" class="vstack" style="text-align: center;">
+                        <span>RY:</span>
+                        <pre id="ry-lbl" style="min-width: 80px;"></pre>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="px-2">
+                    <center>
+                      <div class="btn-group mb-3" role="group" aria-label="Display mode options">
+                        <input type="radio" class="btn-check" name="displayMode" id="normalMode" value="normal" checked>
+                        <label class="btn btn-outline-secondary btn-sm ds-i18n" for="normalMode">Normal</label>
+
+                        <input type="radio" class="btn-check" name="displayMode" id="centerZoomMode" value="centerZoom">
+                        <label class="btn btn-outline-secondary btn-sm ds-i18n" for="centerZoomMode">10x zoom</label>
+
+                        <input type="radio" class="btn-check" name="displayMode" id="checkCircularityMode" value="checkCircularity">
+                        <label class="btn btn-outline-secondary btn-sm ds-i18n" for="checkCircularityMode">Check circularity</label>
+                      </div>
+                    </center>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <!-- Tech-Cleaner : version client -->
+            <div class="col-md-6 col-sm-12" id="tc-client-column" style="display: none; min-width: 330px;">
+              <div class="card mb-3">
+                <div class="card-header"><i class="fas fa-stethoscope me-2"></i><b>Pré-diagnostic de votre manette</b></div>
+                <div class="card-body">
+                  <div class="tcc-step">
+                    <div class="num fw-bold">1</div>
+                    <div class="flex-grow-1">
+                      <div class="fw-semibold">Boutons et fonctions</div>
+                      <div class="small text-muted mb-1">Boutons, gâchettes, pavé tactile, vibrations, lumières, micro… Laissez-vous guider.</div>
+                      <button type="button" class="btn btn-outline-primary btn-sm" onclick="tcc_open_quick_test()"><i class="fas fa-vial me-1"></i>Lancer les tests</button>
+                      <div class="small mt-1" id="tcc-tests-summary"></div>
+                    </div>
+                  </div>
+                  <div class="tcc-step">
+                    <div class="num fw-bold">2</div>
+                    <div class="flex-grow-1">
+                      <div class="fw-semibold">Joysticks</div>
+                      <div class="text-center"><canvas id="tcc-canvas" width="300" height="150"></canvas></div>
+                      <div class="small text-muted mb-1"><b>Drift</b> : lâchez les deux joysticks, puis cliquez. <b>Amplitude</b> : faites des tours complets, joystick à fond.</div>
+                      <div class="d-flex gap-2 flex-wrap">
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="tcc-drift-btn" onclick="tcc_measure_drift()"><i class="fas fa-crosshairs me-1"></i>Tester le drift</button>
+                        <button type="button" class="btn btn-outline-primary btn-sm" id="tcc-circ-btn" onclick="tcc_toggle_circ()"><i class="fas fa-circle-notch me-1"></i>Tester l'amplitude</button>
+                      </div>
+                      <div class="mt-1" id="tcc-drift-status"></div>
+                      <div class="mt-1" id="tcc-circ-status"></div>
+                    </div>
+                  </div>
+                  <div class="tcc-step">
+                    <div class="num fw-bold">3</div>
+                    <div class="flex-grow-1">
+                      <div class="fw-semibold mb-1">Résultat</div>
+                      <button type="button" class="btn btn-primary" onclick="tcc_show_diagnosis()"><i class="fas fa-clipboard-list me-1"></i>Voir mon pré-diagnostic</button>
+                      <div class="mt-2" id="tcc-result" style="display: none;"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card mb-3">
+                <div class="card-header"><i class="fas fa-key me-2"></i><b>Recalibrage TMR</b> <span class="small text-muted">· clients Tech-Cleaner</span></div>
+                <div class="card-body">
+                  <div id="tcc-tmr-locked">
+                    <p class="small mb-2">Vos joysticks TMR ont été posés chez Tech-Cleaner ? Saisissez le code personnel indiqué sur votre rapport pour recalibrer votre manette vous-même.</p>
+                    <div class="input-group" style="max-width: 360px;">
+                      <input type="text" class="form-control font-monospace text-uppercase" id="tcc-code-input" placeholder="XXXX-XXXX" maxlength="12" autocomplete="off" onkeydown="if(event.key==='Enter') tcc_unlock()">
+                      <button class="btn btn-primary" type="button" id="tcc-code-btn" onclick="tcc_unlock()">Déverrouiller</button>
+                    </div>
+                    <div class="small mt-1" id="tcc-code-msg"></div>
+                    <p class="small text-muted mt-2 mb-0">Pas encore équipé ? Les joysticks TMR mettent fin au drift.
+                      <a href="https://www.techcleaner.fr/booking-calendar/reparation-manettes" target="_blank">Prendre rendez-vous</a>.</p>
+                  </div>
+
+                  <div id="tcc-tmr-steps" style="display: none;">
+                    <div class="alert alert-info small py-2">Rien n'est enregistré dans la manette avant l'étape 4. En cas de doute, cliquez sur « Annuler » : la manette redémarre avec son ancien calibrage.</div>
+                    <div class="tcc-step">
+                      <div class="num" id="tcc-step1-state"></div>
+                      <div class="flex-grow-1">
+                        <div class="fw-semibold">1. Centre</div>
+                        <div class="small text-muted mb-1">Posez la manette à plat, ne touchez pas les joysticks, puis suivez les instructions.</div>
+                        <button type="button" class="btn btn-primary btn-sm" id="tcc-center-btn" onclick="tcc_tmr_center()">Calibrer le centre</button>
+                      </div>
+                    </div>
+                    <div class="tcc-step">
+                      <div class="num" id="tcc-step2-state"></div>
+                      <div class="flex-grow-1">
+                        <div class="fw-semibold">2. Amplitude</div>
+                        <div class="small text-muted mb-1">Faites plusieurs tours complets avec chaque joystick, poussé à fond, lentement.</div>
+                        <button type="button" class="btn btn-primary btn-sm" id="tcc-range-btn" onclick="tcc_tmr_range()">Calibrer l'amplitude</button>
+                      </div>
+                    </div>
+                    <div class="tcc-step">
+                      <div class="num" id="tcc-step3-state"></div>
+                      <div class="flex-grow-1">
+                        <div class="fw-semibold">3. Vérification</div>
+                        <div class="text-center"><canvas id="tcc-tmr-canvas" width="300" height="150"></canvas></div>
+                        <button type="button" class="btn btn-primary btn-sm" id="tcc-verify-btn" onclick="tcc_tmr_verify()">Vérifier le résultat</button>
+                        <div class="mt-1" id="tcc-verify-status"></div>
+                      </div>
+                    </div>
+                    <div class="tcc-step">
+                      <div class="num" id="tcc-step4-state"></div>
+                      <div class="flex-grow-1">
+                        <div class="fw-semibold">4. Enregistrement</div>
+                        <div class="d-flex gap-2 flex-wrap mt-1">
+                          <button type="button" class="btn btn-success btn-sm" id="tcc-save-btn" onclick="tcc_tmr_save()"><i class="fas fa-floppy-disk me-1"></i>Enregistrer dans la manette</button>
+                          <button type="button" class="btn btn-outline-secondary btn-sm" id="tcc-cancel-btn" onclick="tcc_tmr_cancel()" style="display: none;">Annuler (redémarrer la manette)</button>
+                        </div>
+                        <div class="small text-success fw-bold mt-1" id="tcc-saved-msg" style="display: none;"><i class="fas fa-circle-check me-1"></i>Calibrage enregistré. Vous pouvez débrancher votre manette.</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <p class="small text-muted">Outil gratuit fourni par Tech-Cleaner, sans garantie, non affilié à Sony ni PlayStation. Aucune donnée n'est envoyée : le test se déroule entièrement dans votre navigateur.</p>
+            </div>
+          </div>
+        </div>
+        <!-- <div class="tab-pane" id="tests-content" role="tabpanel" aria-labelledby="tests-tab">
+          <div class="card text-bg-light mt-3" style="min-height: 500px;">
+            <div class="card-header">
+              <i class="fas fa-vial"></i>&nbsp;&nbsp;<span class="ds-i18n">Tests</span>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-4">
+                  <div class="list-group" id="tests-list" role="tablist">
+                    <a class="list-group-item list-group-item-action active ds-i18n" id="haptic-test-tab" data-bs-toggle="list" href="#haptic-test-pane">Haptic Motors</a>
+                  </div>
+                </div>
+                <div class="col-8">
+                  <div class="bg-white border rounded-3 p-4">
+                    <div class="tab-content">
+                      <div class="tab-pane show active" id="haptic-test-pane" role="tabpanel" aria-labelledby="haptic-test-tab">
+                        <h5 class="ds-i18n">Test the Haptic Motors</h5>
+                        <p class="ds-i18n">Press L2 to test the strong (left) haptic motor</p>
+                        <p class="ds-i18n">Press R2 to test the weak (right) haptic motor</p>
+                        <p class="ds-i18n">The motor strength will match how hard you press the trigger</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div> -->
+        <div class="tab-pane" id="info-content" role="tabpanel" aria-labelledby="info-tab">
+          <div class="container-fluid py-4">
+            <div class="row">
+              <div class="col-lg-12 col-xl-6 py-3">
+                <div class="card">
+                  <h5 class="card-header"><i class="fas fa-code"></i>&nbsp;&nbsp;<span class="ds-i18n">Software</span></h5>
+                  <div class="card-body">
+                    <dl class="row" id="fwinfoextra-fw"></dl>
+                  </div>
+                </div>
+              </div>
+              <div class="col-lg-12 col-xl-6 py-3">
+                <div class="card">
+                  <h5 class="card-header"><i class="fas fa-microchip"></i>&nbsp;&nbsp;<span class="ds-i18n">Hardware</span></h5>
+                  <div class="card-body">
+                    <dl class="row" id="fwinfoextra-hw"></dl>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-pane" id="debug-content" role="tabpanel" aria-labelledby="debug-tab">
+          <div class="container-fluid py-4">
+            <div class="row">
+              <p class="ds-i18n">Sections below are not useful, just some debug infos or manual commands</p>
+            </div>
+
+            <div class="row">
+              <div class="col-md-6 col-sm-12">
+                <div class="card">
+                  <div class="card-header"><i class="fas fa-bug"></i>&nbsp;&nbsp;<span class="ds-i18n">Debug Info</span></div>
+                  <div class="vstack p-2">
+                    <div class="hstack"><p class="ds-i18n">NVS Status</p><p class="ms-auto ds-i18n" id="d-nvstatus">Unknown</p></div>
+                  </div>
+                </div>
+                <br>
+              </div>
+
+              <div class="col-md-6 col-sm-12">
+                <div class="card">
+                  <div class="card-header"><i class="fas fa-skull-crossbones"></i>&nbsp;&nbsp;<span class="ds-i18n">Debug buttons</span></div>
+                  <div class="vstack gap-2 p-2">
+                    <div class="hstack gap-2">
+                      <button type="button" class="btn btn-success ds-btn ds-i18n" onclick="refresh_nvstatus()">Query NVS status</button>
+                      <button type="button" class="btn btn-primary ds-btn ds-i18n" onclick="nvsunlock()">NVS unlock</button>
+                      <button type="button" class="btn btn-primary ds-btn ds-i18n" onclick="nvslock()">NVS lock</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Alert Messages Container -->
+  <div class="container-fluid fixed-bottom " style="z-index: 1040; pointer-events: none; bottom: 70px;">
+    <div class="container">
+      <div id="alert-container" class="mb-3" style="pointer-events: auto;">
+        <!-- Alert messages will be dynamically inserted here -->
+      </div>
+    </div>
+  </div>
+
+  <!-- About drift and this utility -->
+  <div id="aboutdrift" class="tc-atelier-only" style="position: fixed; bottom: 6em; left: 0; right: 0; z-index: 0; display: none;">
+    <div class="container">
+      <div class="mb-4" style="border: 2px solid var(--bs-link-color); border-radius: 8px; color: var(--bs-link-color); padding: 12px; background-color: var(--bs-body-bg);">
+        <p class="mb-2">
+          <i class="fas fa-hand-point-up"></i>&nbsp;&nbsp;
+          <span class="ds-i18n">This utility cannot fix stick drift.</span>
+        </p>
+        <p class="mb-2">
+          <span class="ds-i18n">Drift is caused by mechanical parts in the joystick being worn out, and they need to be replaced to fix the drift.</span>
+          <span class="ds-i18n">After they have been replaced, this utility can be used to calibrate the controller to work with the new joysticks.</span></p>
+        <p class="mb-0">
+          <i class="fas fa-regular fa-triangle-exclamation"></i>&nbsp;&nbsp;
+          <span class="ds-i18n">Calibrating without replacing the joysticks may help temporarily, but it may also make the problem worse, with no way to undo it.</span>
+        </p>
+      </div>
+
+      <div id="lastConnected" class="gap-2">
+        <span class="text-muted"><i class="fas fa-history"></i>&nbsp;&nbsp;<span class="ds-i18n">Last connected</span>:</span>
+        <span id="lastConnectedInfo"></span>
+        <div id="lastConnectedWarning" style="display: none;">
+          <p class="text-danger" style="margin-top: 8px; margin-bottom: 0;">
+            <i class="fas fa-regular fa-triangle-exclamation"></i>&nbsp;&nbsp;<span class="ds-i18n">This controller has unsaved changes that will be lost when the controller is rebooted.</span>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fixed Footer -->
+  <footer class="fixed-bottom bg-body-tertiary border-top">
+    <div class="container">
+      <div class="d-flex flex-column flex-sm-row justify-content-between py-3" id="footbody">
+        <p class="mb-0"><b>Tech-Cleaner</b> · 06 63 47 78 58 · <a href="mailto:techcleaner95@gmail.com">techcleaner95@gmail.com</a> · <a href="https://techcleaner.fr" target="_blank">techcleaner.fr</a></p>
+        <p class="mb-0 small text-muted">Basé sur <a target="_blank" href="https://github.com/dualshock-tools/dualshock-tools.github.io">DualShock Calibration GUI</a> v2.35 © the_al (licence MIT)<span id="authorMsg"></span></p>
+      </div>
+    </div>
+  </footer>
+
+</body>
+
+</html>
