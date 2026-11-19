@@ -35,6 +35,14 @@ export const CLIENT_CONFIG = {
     DS5_Edge: { sticks: { name: 'Upgrade joysticks TMR DualSense Edge', price: 60 }, other: { name: 'Réparation DualSense Edge', price: null } },
     DS4:      { sticks: { name: 'Réparation manette PS4', price: 20 }, other: { name: 'Réparation manette PS4', price: 20 } },
   },
+
+  // Manettes Xbox (test seul, via la Gamepad API du navigateur)
+  xboxModels: {
+    series: { label: 'Xbox Series X|S', sticks: { name: 'Upgrade joysticks TMR Xbox Series', price: 50 }, other: { name: 'Réparation manette Xbox Series', price: 30 } },
+    one:    { label: 'Xbox One',        sticks: { name: 'Réparation manette Xbox One', price: 20 },       other: { name: 'Réparation manette Xbox One', price: 20 } },
+    elite2: { label: 'Xbox Elite Series 2', sticks: { name: 'Réparation manette Elite Series 2', price: 50 }, other: { name: 'Réparation manette Elite Series 2', price: 50 } },
+    scuf:   { label: 'Scuf (Xbox)',     sticks: { name: 'Upgrade joysticks TMR Scuf Xbox', price: 60 },   other: { name: 'Réparation manette Scuf', price: 50 } },
+  },
 };
 
 const UNLOCK_KEY = 'tcTmrUnlocked';
@@ -61,6 +69,20 @@ const measures = {
 
 const tmr = { unlocked: false, centerDone: false, rangeDone: false, verified: null, saved: false };
 
+// Manette Xbox (Gamepad API)
+const xbox = {
+  active: false,
+  index: null,
+  model: null,          // 'series' | 'one' | 'elite2' | 'scuf' | 'other' | null
+  sticks: { left: { x: 0, y: 0 }, right: { x: 0, y: 0 } },
+  pressed: new Set(),   // index des boutons vus enfoncés
+  triggerMax: [0, 0],   // course max LT / RT
+  rumble: null,         // true | false | null (non testé)
+  unsupportedShown: false,
+  triggerRumble: null,
+  raf: null,
+};
+
 function resetMeasures() {
   for (const side of ['left', 'right']) { measures[side].circ.fill(0); measures[side].center = null; }
   measures.circRunning = false;
@@ -76,7 +98,14 @@ const pct = (v) => `${(v * 100).toFixed(1)} %`;
 const euros = (n) => `${Number.isInteger(n) ? n : n.toFixed(2).replace('.', ',')} €`;
 
 function numberOfSticks() {
+  if (xbox.active) return 2;
   return deps.getController()?.currentController?.getNumberOfSticks?.() ?? 2;
+}
+
+/** Position actuelle des joysticks : manette Sony (WebHID) ou Xbox (Gamepad API) */
+function currentSticks() {
+  if (xbox.active) return xbox.sticks;
+  return deps.getController()?.button_states?.sticks ?? null;
 }
 function sides() { return numberOfSticks() === 1 ? ['left'] : ['left', 'right']; }
 const sideName = (side) => numberOfSticks() === 1 ? 'joystick' : (side === 'left' ? 'joystick gauche' : 'joystick droit');
@@ -107,10 +136,13 @@ export function initTechCleanerClient(dependencies) {
   if (!TC_CLIENT_MODE) return;
   document.title = 'Testez votre manette – Tech-Cleaner';
   $('#tc-client-column').show();
+  startGamepadDetection();
 }
 
 export function tcClientOnConnected() {
   if (!TC_CLIENT_MODE) return;
+  stopXbox();
+  $('#tcx-panel, #tcx-sony-hint').hide();
   resetMeasures();
   Object.assign(tmr, { unlocked: false, centerDone: false, rangeDone: false, verified: null, saved: false });
   const serial = tcSession.serialNumber;
@@ -152,12 +184,12 @@ const throttledDraw = (() => {
 })();
 
 function drawCanvas() {
-  for (const id of ['tcc-canvas', 'tcc-tmr-canvas']) {
+  for (const id of ['tcc-canvas', 'tcc-tmr-canvas', 'tcx-canvas']) {
     const c = document.getElementById(id);
     if (!c || !c.offsetParent) continue;
     const ctx = c.getContext('2d');
     ctx.clearRect(0, 0, c.width, c.height);
-    const st = deps.getController()?.button_states?.sticks ?? { left: { x: 0, y: 0 }, right: { x: 0, y: 0 } };
+    const st = currentSticks() ?? { left: { x: 0, y: 0 }, right: { x: 0, y: 0 } };
     if (numberOfSticks() === 1) {
       draw_stick_dial(ctx, c.width / 2, 75, 60, st.left.x, st.left.y, { circularity_data: measures.left.circ });
     } else {
@@ -173,13 +205,12 @@ function drawCanvas() {
 
 function measureCenter(statusSel) {
   return new Promise((resolve) => {
-    const ctrl = deps.getController();
-    if (!ctrl || measures.centerRunning) return resolve(false);
+    if (!currentSticks() || measures.centerRunning) return resolve(false);
     measures.centerRunning = true;
     const acc = { left: [], right: [] };
     const t0 = Date.now();
     const timer = setInterval(() => {
-      const st = ctrl.button_states?.sticks;
+      const st = currentSticks();
       if (st) { acc.left.push({ ...st.left }); acc.right.push({ ...st.right }); }
       const left = Math.max(0, CLIENT_CONFIG.centerSampleMs - (Date.now() - t0));
       $(statusSel).html(`<span class="text-warning"><i class="fas fa-hand me-1"></i>Ne touchez pas les joysticks… ${(left / 1000).toFixed(1)} s</span>`);
@@ -211,7 +242,7 @@ function stopCirc() {
 }
 
 function renderCircProgress() {
-  const sel = measures.circContext === 'verify' ? '#tcc-verify-status' : '#tcc-circ-status';
+  const sel = measures.circContext === 'verify' ? '#tcc-verify-status' : '#tcc-circ-status, #tcx-circ-status';
   const parts = sides().map(side => {
     const { covered } = circularity(side);
     const p = Math.min(100, Math.round(covered / CLIENT_CONFIG.circularityMinBins * 100));
@@ -246,20 +277,20 @@ function stickResultHtml(v) {
 // ---------------------------------------------------------------------------
 
 export async function tcc_measure_drift() {
-  $('#tcc-drift-btn').prop('disabled', true);
-  await measureCenter('#tcc-drift-status');
-  $('#tcc-drift-btn').prop('disabled', false);
+  $('#tcc-drift-btn, #tcx-drift-btn').prop('disabled', true);
+  await measureCenter('#tcc-drift-status, #tcx-drift-status');
+  $('#tcc-drift-btn, #tcx-drift-btn').prop('disabled', false);
   renderSticks();
 }
 
 export function tcc_toggle_circ() {
   if (!measures.circRunning) {
     startCirc('diag');
-    $('#tcc-circ-btn').removeClass('btn-outline-primary').addClass('btn-warning').html('<i class="fas fa-stop me-1"></i>J\'ai terminé');
+    $('#tcc-circ-btn, #tcx-circ-btn').removeClass('btn-outline-primary').addClass('btn-warning').html('<i class="fas fa-stop me-1"></i>J\'ai terminé');
     renderCircProgress();
   } else {
     stopCirc();
-    $('#tcc-circ-btn').removeClass('btn-warning').addClass('btn-outline-primary').html('<i class="fas fa-circle-notch me-1"></i>Tester l\'amplitude');
+    $('#tcc-circ-btn, #tcx-circ-btn').removeClass('btn-warning').addClass('btn-outline-primary').html('<i class="fas fa-circle-notch me-1"></i>Tester l\'amplitude');
     renderSticks();
   }
 }
@@ -274,41 +305,23 @@ export function tcc_open_quick_test() {
 // Pré-diagnostic : calcul
 // ---------------------------------------------------------------------------
 
-function computeDiagnosis() {
-  const s = tcSession;
-  const model = s.model;
-  const tests = s.supportedQuickTests.length ? s.supportedQuickTests : Object.keys(s.quickTests);
-  const failed = tests.filter(id => s.quickTests[id] === false);
-  const untested = tests.filter(id => s.quickTests[id] !== true && s.quickTests[id] !== false);
+function stickProblems() {
   const sticks = stickVerdicts();
-
   const problems = [];
   let stickIssue = false;
   for (const st of sticks) {
     if (st.centerOk === false) { stickIssue = true; problems.push(`Drift détecté sur le ${sideName(st.side)} (décalage au repos ${pct(st.center)})`); }
     if (st.circOk === false) { stickIssue = true; problems.push(`Amplitude irrégulière sur le ${sideName(st.side)} (circularité ${st.circ.toFixed(1)} %)`); }
   }
-  failed.forEach(id => problems.push(`Défaut constaté : ${QUICK_TEST_LABELS_FR[id] || id}`));
-  const otherIssue = failed.length > 0;
-
   const notChecked = [];
-  if (untested.length) notChecked.push(`${untested.length} test(s) fonctionnel(s) non réalisé(s)`);
   if (sticks.some(x => x.centerOk == null)) notChecked.push('drift des joysticks non mesuré');
   if (sticks.some(x => x.circOk == null)) notChecked.push('amplitude des joysticks non mesurée');
+  return { problems, notChecked, stickIssue };
+}
 
-  // Prestations conseillées
-  let services = [];
-  const offers = CLIENT_CONFIG.offers[model];
-  if (!s.isClone && offers) {
-    if (stickIssue) services.push(offers.sticks);
-    if (otherIssue) services.push(offers.other);
-    // une même prestation ne compte qu'une fois
-    services = services.filter((o, i, arr) => arr.findIndex(x => x.name === o.name) === i);
-  } else if (!s.isClone && (stickIssue || otherIssue)) {
-    services.push({ name: 'Réparation manette', price: null });
-  }
-
-  // Double forfait : le plus cher plein tarif, le 2e à -50 %
+/** Prestations + règle du double forfait (le plus cher plein tarif, le 2e à -50 %) */
+function priceServices(services) {
+  services = services.filter((o, i, arr) => arr.findIndex(x => x.name === o.name) === i);
   let lines = [];
   let total = null;
   if (services.length && services.every(o => o.price != null)) {
@@ -318,15 +331,48 @@ function computeDiagnosis() {
   } else {
     lines = services.map(o => ({ name: o.name, price: o.price, discounted: false, full: o.price }));
   }
+  return { lines, total };
+}
+
+function computeDiagnosis() {
+  if (xbox.active) return computeXboxDiagnosis();
+  const s = tcSession;
+  const model = s.model;
+  const tests = s.supportedQuickTests.length ? s.supportedQuickTests : Object.keys(s.quickTests);
+  const failed = tests.filter(id => s.quickTests[id] === false);
+  const untested = tests.filter(id => s.quickTests[id] !== true && s.quickTests[id] !== false);
+  const sp = stickProblems();
+  const problems = [...sp.problems];
+  const stickIssue = sp.stickIssue;
+  failed.forEach(id => problems.push(`Défaut constaté : ${QUICK_TEST_LABELS_FR[id] || id}`));
+  const otherIssue = failed.length > 0;
+
+  const notChecked = [];
+  if (untested.length) notChecked.push(`${untested.length} test(s) fonctionnel(s) non réalisé(s)`);
+  notChecked.push(...sp.notChecked);
+
+  // Prestations conseillées
+  let services = [];
+  const offers = CLIENT_CONFIG.offers[model];
+  if (!s.isClone && offers) {
+    if (stickIssue) services.push(offers.sticks);
+    if (otherIssue) services.push(offers.other);
+  } else if (!s.isClone && (stickIssue || otherIssue)) {
+    services.push({ name: 'Réparation manette', price: null });
+  }
+  const { lines, total } = priceServices(services);
 
   return { problems, notChecked, lines, total, isClone: s.isClone, hasProblem: problems.length > 0 };
 }
 
 function diagnosisText(d) {
   const s = tcSession;
+  const device = xbox.active
+    ? `Manette : ${CLIENT_CONFIG.xboxModels[xbox.model]?.label || 'Xbox (modèle non précisé)'}`
+    : `Manette : ${s.deviceName || '?'}${s.serialNumber ? ` – n° ${s.serialNumber}` : ''}`;
   const out = [
     `Pré-diagnostic ${CLIENT_CONFIG.toolName} – ${new Date().toLocaleString('fr-FR')}`,
-    `Manette : ${s.deviceName || '?'}${s.serialNumber ? ` – n° ${s.serialNumber}` : ''}`,
+    device,
   ];
   if (d.isClone) out.push('Attention : manette détectée comme non d\'origine.');
   out.push(d.problems.length ? `Problèmes détectés :\n- ${d.problems.join('\n- ')}` : 'Aucun défaut détecté par le test.');
@@ -364,6 +410,10 @@ export function tcc_show_diagnosis() {
     }
   }
 
+  if (d.needModel) {
+    html += `<div class="alert alert-warning small py-2"><i class="fas fa-hand-pointer me-1"></i>Choisissez le modèle de votre manette en haut du test pour afficher le prix conseillé.</div>`;
+  }
+
   if (d.notChecked.length) {
     html += `<div class="small text-muted mb-2"><i class="fas fa-circle-info me-1"></i>Pour un résultat complet : ${esc(d.notChecked.join(', '))}.</div>`;
   }
@@ -375,8 +425,9 @@ export function tcc_show_diagnosis() {
     <div class="small mt-2" id="tcc-copy-msg"></div>
     <div class="small text-muted mt-2">Une question ? ${esc(CLIENT_CONFIG.phone)} · <a href="mailto:${esc(CLIENT_CONFIG.email)}">${esc(CLIENT_CONFIG.email)}</a></div>`;
 
-  $('#tcc-result').html(html).show();
-  document.getElementById('tcc-result')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  const target = xbox.active ? 'tcx-result' : 'tcc-result';
+  $('#' + target).html(html).show();
+  document.getElementById(target)?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 async function copyText(text) {
@@ -482,9 +533,9 @@ function renderTests() {
 function renderSticks() {
   const v = stickVerdicts();
   const driftHtml = v.map(s => `<div class="small"><b class="text-capitalize">${esc(sideName(s.side))}</b> — ${s.center == null ? '<span class="text-muted">non mesuré</span>' : `${pct(s.center)} ${s.centerOk ? '<span class="text-success fw-bold">✔ OK</span>' : '<span class="text-danger fw-bold">✘ Drift</span>'}`}</div>`).join('');
-  $('#tcc-drift-status').html(v.some(s => s.center != null) ? `<div class="small fw-semibold">Drift au repos</div>${driftHtml}` : '');
+  $('#tcc-drift-status, #tcx-drift-status').html(v.some(s => s.center != null) ? `<div class="small fw-semibold">Drift au repos</div>${driftHtml}` : '');
   const circHtml = v.map(s => `<div class="small"><b class="text-capitalize">${esc(sideName(s.side))}</b> — ${s.circ == null ? '<span class="text-muted">non mesuré</span>' : `${s.circ.toFixed(1)} % ${s.circOk ? '<span class="text-success fw-bold">✔ OK</span>' : '<span class="text-danger fw-bold">✘ Hors tolérance</span>'}`}${s.circ != null && s.covered < CLIENT_CONFIG.circularityMinBins ? ' <span class="text-warning">(tours incomplets)</span>' : ''}</div>`).join('');
-  $('#tcc-circ-status').html(v.some(s => s.circ != null) ? `<div class="small fw-semibold mt-1">Amplitude (circularité)</div>${circHtml}` : '');
+  $('#tcc-circ-status, #tcx-circ-status').html(v.some(s => s.circ != null) ? `<div class="small fw-semibold mt-1">Amplitude (circularité)</div>${circHtml}` : '');
   drawCanvas();
 }
 
@@ -528,8 +579,232 @@ function renderAll() {
   renderTmr();
 }
 
+// ---------------------------------------------------------------------------
+// Manettes Xbox (Gamepad API) : test seul, sans calibrage
+// ---------------------------------------------------------------------------
+
+// Boutons à tester (disposition « standard » des navigateurs)
+const XBOX_BUTTONS = [
+  { i: 0, label: 'A', name: 'A' }, { i: 1, label: 'B', name: 'B' }, { i: 2, label: 'X', name: 'X' }, { i: 3, label: 'Y', name: 'Y' },
+  { i: 4, label: 'LB', name: 'LB' }, { i: 5, label: 'RB', name: 'RB' }, { i: 6, label: 'LT', name: 'LT' }, { i: 7, label: 'RT', name: 'RT' },
+  { i: 8, label: 'View', name: 'View' }, { i: 9, label: 'Menu', name: 'Menu' },
+  { i: 10, label: 'L3', name: 'L3 (clic du stick gauche)' }, { i: 11, label: 'R3', name: 'R3 (clic du stick droit)' },
+  { i: 12, label: '↑', name: 'croix haut' }, { i: 13, label: '↓', name: 'croix bas' }, { i: 14, label: '←', name: 'croix gauche' }, { i: 15, label: '→', name: 'croix droite' },
+];
+
+// Identifiants USB (visibles sur Mac, Linux, Android ; pas sous Windows où le modèle est demandé au client)
+const XBOX_PRODUCTS = {
+  '02d1': 'one', '02dd': 'one', '02e0': 'one', '02ea': 'one', '02fd': 'one',
+  '0b12': 'series', '0b13': 'series', '0b20': 'series', '0b21': 'series',
+  '0b00': 'elite2', '0b05': 'elite2', '0b22': 'elite2',
+};
+const VENDOR_SONY = '054c';
+const VENDOR_MICROSOFT = '045e';
+const VENDOR_SCUF = '2e95';
+
+/** Classe une manette d'après l'identifiant fourni par le navigateur */
+export function classifyGamepad(id) {
+  const s = String(id || '');
+  const m = s.match(/Vendor:\s*([0-9a-f]{4})\s*Product:\s*([0-9a-f]{4})/i) || s.match(/^([0-9a-f]{4})-([0-9a-f]{4})-/i);
+  const vendor = m ? m[1].toLowerCase() : null;
+  const product = m ? m[2].toLowerCase() : null;
+  if (vendor === VENDOR_SONY || (!vendor && /dualsense|dualshock|playstation|wireless controller/i.test(s))) return { kind: 'sony' };
+  if (vendor === VENDOR_MICROSOFT) return { kind: 'xbox', model: XBOX_PRODUCTS[product] || null };
+  if (vendor === VENDOR_SCUF) return { kind: 'xbox', model: 'scuf' };
+  if (!vendor && /xinput|xbox/i.test(s)) return { kind: 'xbox', model: null }; // Windows : toutes les manettes Xbox
+  return { kind: 'unsupported' };
+}
+
+function sonyConnected() {
+  return !!deps.getController()?.currentController;
+}
+
+function startGamepadDetection() {
+  if (!('getGamepads' in navigator)) return;
+  window.addEventListener('gamepadconnected', (e) => onGamepadFound(e.gamepad));
+  window.addEventListener('gamepaddisconnected', (e) => {
+    if (xbox.active && e.gamepad.index === xbox.index) {
+      xbox.index = null;
+      $('#tcx-lost').show();
+    }
+  });
+  // Filet de sécurité si l'événement a été manqué
+  setInterval(() => {
+    if ((xbox.active && xbox.index != null) || sonyConnected()) return;
+    for (const gp of navigator.getGamepads()) if (gp) onGamepadFound(gp);
+  }, 1000);
+}
+
+function onGamepadFound(gp) {
+  if (!gp || sonyConnected()) return;
+  const c = classifyGamepad(gp.id);
+  if (xbox.active) {
+    // reconnexion de la manette en cours de test
+    if (xbox.index == null && c.kind === 'xbox') { xbox.index = gp.index; $('#tcx-lost').hide(); }
+    return;
+  }
+  if (c.kind === 'sony') { $('#tcx-sony-hint').show(); return; }
+  if (c.kind === 'unsupported') { if (!xbox.unsupportedShown) showUnsupported(); return; }
+  activateXbox(gp.index, c.model);
+}
+
+function showUnsupported() {
+  xbox.unsupportedShown = true;
+  $('#tcx-panel').show();
+  $('#tcx-test').hide();
+  $('#tcx-unsupported').show();
+}
+
+function activateXbox(index, model) {
+  Object.assign(xbox, {
+    active: true, index, model, pressed: new Set(), triggerMax: [0, 0], rumble: null, triggerRumble: null,
+  });
+  resetMeasures();
+  $('#offlinebar').hide();
+  $('#tcx-panel').show();
+  $('#tcx-unsupported, #tcx-lost').hide();
+  $('#tcx-test').show();
+  $('#tcx-result').hide().html('');
+  renderXboxButtons(new Set());
+  renderXboxModel();
+  renderXboxRumble();
+  renderSticks();
+  if (!xbox.raf) xbox.raf = requestAnimationFrame(pollXbox);
+}
+
+function stopXbox() {
+  if (xbox.raf) cancelAnimationFrame(xbox.raf);
+  xbox.raf = null;
+  xbox.active = false;
+}
+
+let lastPressedKey = '';
+function pollXbox() {
+  xbox.raf = null;
+  if (!xbox.active) return;
+  const gp = xbox.index != null ? navigator.getGamepads()[xbox.index] : null;
+  if (gp) {
+    const ax = gp.axes;
+    xbox.sticks = { left: { x: ax[0] || 0, y: ax[1] || 0 }, right: { x: ax[2] || 0, y: ax[3] || 0 } };
+    const now = new Set();
+    gp.buttons.forEach((b, i) => { if (b.pressed) { now.add(i); xbox.pressed.add(i); } });
+    [6, 7].forEach((bi, k) => { xbox.triggerMax[k] = Math.max(xbox.triggerMax[k], gp.buttons[bi]?.value || 0); });
+    const key = [...now].join(',') + '|' + gp.buttons[6]?.value?.toFixed(2) + '|' + gp.buttons[7]?.value?.toFixed(2);
+    if (key !== lastPressedKey) { lastPressedKey = key; renderXboxButtons(now, gp); }
+    tc_client_handle_input({ sticks: xbox.sticks });
+  }
+  xbox.raf = requestAnimationFrame(pollXbox);
+}
+
+function renderXboxButtons(now, gp = null) {
+  const html = XBOX_BUTTONS.map(b => {
+    const tested = xbox.pressed.has(b.i);
+    const down = now.has(b.i);
+    const cls = down ? 'bg-primary text-white border-primary' : tested ? 'bg-success text-white border-success' : 'bg-body-tertiary';
+    return `<span class="tcx-btn border rounded ${cls}" title="${esc(b.name)}">${esc(b.label)}</span>`;
+  }).join('');
+  $('#tcx-buttons').html(html);
+  const done = XBOX_BUTTONS.filter(b => xbox.pressed.has(b.i)).length;
+  $('#tcx-buttons-count').html(`${done}/${XBOX_BUTTONS.length} boutons testés${done === XBOX_BUTTONS.length ? ' <span class="text-success fw-bold">✔</span>' : ''}`);
+  [0, 1].forEach(k => {
+    const cur = gp?.buttons[6 + k]?.value || 0;
+    const max = xbox.triggerMax[k];
+    $(`#tcx-trig-${k} .progress-bar`).css('width', `${Math.round(cur * 100)}%`);
+    $(`#tcx-trig-${k}-max`).html(max > 0 ? `course max ${Math.round(max * 100)} % ${max >= 0.9 ? '<span class="text-success fw-bold">✔</span>' : ''}` : '');
+  });
+}
+
+function renderXboxModel() {
+  $('#tcx-models .btn').each((_, el) => {
+    const on = el.dataset.model === xbox.model;
+    $(el).toggleClass('btn-primary', on).toggleClass('btn-outline-primary', !on);
+  });
+  const other = xbox.model === 'other';
+  $('#tcx-test-body').toggle(!other);
+  $('#tcx-other-msg').toggle(other);
+}
+
+export function tcx_select_model(model) {
+  xbox.model = model;
+  renderXboxModel();
+  if ($('#tcx-result').is(':visible')) tcc_show_diagnosis();
+}
+
+function rumbleSupport() {
+  const act = xbox.index != null ? navigator.getGamepads()[xbox.index]?.vibrationActuator : null;
+  return {
+    main: !!act,
+    trigger: !!act && Array.isArray(act.effects) && act.effects.includes('trigger-rumble'),
+  };
+}
+
+function renderXboxRumble() {
+  const sup = rumbleSupport();
+  $('#tcx-rumble-main').toggle(sup.main);
+  $('#tcx-rumble-trigger').toggle(sup.trigger);
+  $('#tcx-rumble-none').toggle(!sup.main);
+  const st = (v) => v === true ? '<span class="text-success fw-bold">✔ OK</span>' : v === false ? '<span class="text-danger fw-bold">✘ Aucune vibration</span>' : '';
+  $('#tcx-rumble-main-state').html(st(xbox.rumble));
+  $('#tcx-rumble-trigger-state').html(st(xbox.triggerRumble));
+}
+
+export async function tcx_rumble(kind) {
+  const act = xbox.index != null ? navigator.getGamepads()[xbox.index]?.vibrationActuator : null;
+  if (!act) return;
+  const $q = $(`#tcx-rumble-${kind}-q`);
+  try {
+    if (kind === 'trigger') await act.playEffect('trigger-rumble', { duration: 1200, leftTrigger: 1, rightTrigger: 1 });
+    else await act.playEffect('dual-rumble', { duration: 1200, strongMagnitude: 1, weakMagnitude: 1 });
+  } catch (e) { /* certains navigateurs refusent : on pose quand même la question */ }
+  $q.show();
+}
+
+export function tcx_rumble_answer(kind, ok) {
+  if (kind === 'trigger') xbox.triggerRumble = ok; else xbox.rumble = ok;
+  $(`#tcx-rumble-${kind}-q`).hide();
+  renderXboxRumble();
+}
+
+export function tcx_restart() {
+  location.reload();
+}
+
+function computeXboxDiagnosis() {
+  const sp = stickProblems();
+  const problems = [...sp.problems];
+  const notChecked = [...sp.notChecked];
+  let otherIssue = false;
+
+  if (xbox.pressed.size >= 4) {
+    const missing = XBOX_BUTTONS.filter(b => !xbox.pressed.has(b.i));
+    if (missing.length) {
+      otherIssue = true;
+      problems.push(`Bouton(s) sans réponse pendant le test : ${missing.map(b => b.name).join(', ')}`);
+    }
+  } else {
+    notChecked.push('test des boutons non réalisé');
+  }
+  [0, 1].forEach(k => {
+    const v = xbox.triggerMax[k];
+    if (v > 0.1 && v < 0.9) { otherIssue = true; problems.push(`Course incomplète de la gâchette ${k ? 'droite (RT)' : 'gauche (LT)'} (${Math.round(v * 100)} %)`); }
+  });
+  if (xbox.rumble === false) { otherIssue = true; problems.push('Vibrations : aucune vibration ressentie'); }
+  if (xbox.triggerRumble === false) { otherIssue = true; problems.push('Vibrations des gâchettes : aucune vibration ressentie'); }
+  if (xbox.rumble === null && rumbleSupport().main) notChecked.push('vibrations non testées');
+
+  const offer = CLIENT_CONFIG.xboxModels[xbox.model];
+  const services = [];
+  if (offer) {
+    if (sp.stickIssue) services.push(offer.sticks);
+    if (otherIssue) services.push(offer.other);
+  }
+  const { lines, total } = priceServices(services);
+  return { problems, notChecked, lines, total, isClone: false, hasProblem: problems.length > 0, needModel: !offer && problems.length > 0 };
+}
+
 // Exposition pour les onclick
 Object.assign(window, {
   tcc_measure_drift, tcc_toggle_circ, tcc_open_quick_test, tcc_show_diagnosis, tcc_copy_diagnosis, tcc_book,
   tcc_unlock, tcc_tmr_center, tcc_tmr_range, tcc_tmr_verify, tcc_tmr_save, tcc_tmr_cancel,
+  tcx_select_model, tcx_rumble, tcx_rumble_answer, tcx_restart,
 });

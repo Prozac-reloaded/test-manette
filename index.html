@@ -51,6 +51,7 @@
   .tcc-step { display: flex; gap: .6rem; align-items: flex-start; padding: .5rem 0; border-bottom: 1px solid var(--bs-border-color); }
   .tcc-step:last-child { border-bottom: 0; }
   .tcc-step .num { font-size: 1.1rem; width: 1.4rem; text-align: center; }
+  .tcx-btn { min-width: 2.6rem; padding: .25rem .5rem; text-align: center; font-weight: 600; font-size: .85rem; }
 </style>
 <script>
   // Applique le mode client avant l'affichage (évite un clignotement)
@@ -123,15 +124,21 @@
 
     <div id="offlinebar" class="vstack p-2" style="display: none;">
       <div class="tc-client-only mb-3">
-        <h1 class="h3 mb-2">Testez votre manette PlayStation gratuitement</h1>
+        <h1 class="h3 mb-2">Testez votre manette PlayStation ou Xbox gratuitement</h1>
         <p class="mb-2">Drift des joysticks, boutons, gâchettes, vibrations, micro… En quelques minutes, vérifiez l'état de votre manette
-          <b>PS4 (DualShock 4), PS5 (DualSense) ou DualSense Edge</b> et obtenez un pré-diagnostic avec la réparation conseillée.</p>
+          <b>PlayStation</b> (PS4, PS5, DualSense Edge) ou <b>Xbox</b> (Series, One, Elite 2, Scuf) et obtenez un pré-diagnostic avec la réparation conseillée.</p>
         <ul class="small mb-2">
           <li>Sur un <b>ordinateur</b> (PC ou Mac) avec <b>Google Chrome</b> ou <b>Microsoft Edge</b>. Les téléphones et tablettes ne sont pas compatibles.</li>
-          <li>Branchez la manette <b>avec un câble USB</b> (le Bluetooth ne suffit pas), puis cliquez sur « Connecter ».</li>
+          <li>Branchez la manette <b>avec un câble USB</b>, puis :
+            <ul>
+              <li><b>Manette PlayStation</b> : cliquez sur « Connecter » ci-dessous ;</li>
+              <li><b>Manette Xbox</b> : appuyez simplement sur un bouton de la manette, le test s'ouvre tout seul.</li>
+            </ul>
+          </li>
           <li>Le test ne modifie rien dans votre manette.</li>
         </ul>
-        <p class="small text-muted mb-0">Client Tech-Cleaner équipé de joysticks TMR ? Après connexion, utilisez la rubrique « Recalibrage TMR » avec le code figurant sur votre rapport.</p>
+        <div class="alert alert-success py-2 mb-2" id="tcx-sony-hint" style="display: none;"><i class="fas fa-circle-check me-1"></i>Manette PlayStation détectée : cliquez sur « Connecter » ci-dessous pour lancer le test complet.</div>
+        <p class="small text-muted mb-0">Client Tech-Cleaner équipé de joysticks TMR (PlayStation) ? Après connexion, utilisez la rubrique « Recalibrage TMR » avec le code figurant sur votre rapport.</p>
       </div>
       <p class="ds-i18n tc-atelier-only">Please connect a DualShock 4, a DualSense, DualSense Edge or VR2 controller to your computer and press Connect.</p>
       <button id="btnconnect" type="button" class="btn btn-outline-primary" onclick="connect()">
@@ -139,6 +146,121 @@
         <span class="ds-i18n">Connect</span>
       </button>
       <br>
+    </div>
+
+    <!-- Tech-Cleaner : test des manettes Xbox (version client) -->
+    <div id="tcx-panel" class="p-2" style="display: none;">
+      <div id="tcx-unsupported" style="display: none;">
+        <div class="alert alert-warning">
+          <b><i class="fas fa-circle-info me-1"></i>Cette manette n'est pas prise en charge par le test en ligne.</b><br>
+          Le test fonctionne avec les manettes <b>PlayStation</b> (PS4, PS5, Edge) et <b>Xbox</b> (Series, One, Elite 2, Scuf).
+          Pour toute question sur votre manette, contactez-nous : <b>06 63 47 78 58</b> · <a href="mailto:techcleaner95@gmail.com">techcleaner95@gmail.com</a>.
+        </div>
+        <button type="button" class="btn btn-outline-secondary btn-sm" onclick="tcx_restart()">Tester une autre manette</button>
+      </div>
+
+      <div id="tcx-test" style="display: none;">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+          <h1 class="h4 mb-0"><i class="fab fa-xbox me-2"></i>Test de votre manette Xbox</h1>
+          <button type="button" class="btn btn-link btn-sm" onclick="tcx_restart()">Changer de manette</button>
+        </div>
+        <div class="alert alert-warning py-2" id="tcx-lost" style="display: none;">Manette déconnectée : rebranchez-la puis appuyez sur un bouton pour continuer.</div>
+
+        <div class="card mb-3">
+          <div class="card-body py-2">
+            <div class="fw-semibold mb-1">Quel est le modèle de votre manette ?</div>
+            <div class="d-flex flex-wrap gap-2" id="tcx-models">
+              <button type="button" class="btn btn-sm btn-outline-primary" data-model="series" onclick="tcx_select_model('series')">Xbox Series X|S</button>
+              <button type="button" class="btn btn-sm btn-outline-primary" data-model="one" onclick="tcx_select_model('one')">Xbox One</button>
+              <button type="button" class="btn btn-sm btn-outline-primary" data-model="elite2" onclick="tcx_select_model('elite2')">Xbox Elite Series 2</button>
+              <button type="button" class="btn btn-sm btn-outline-primary" data-model="scuf" onclick="tcx_select_model('scuf')">Scuf (Xbox)</button>
+              <button type="button" class="btn btn-sm btn-outline-primary" data-model="other" onclick="tcx_select_model('other')">Autre marque</button>
+            </div>
+            <div class="small text-muted mt-1">Astuce : une manette Xbox Series a un bouton « Partager » au centre ; la Xbox One n'en a pas.</div>
+          </div>
+        </div>
+
+        <div class="alert alert-warning" id="tcx-other-msg" style="display: none;">
+          Les manettes d'autres marques ne sont pas prises en charge par le test en ligne.
+          Contactez-nous pour savoir si nous pouvons réparer la vôtre : <b>06 63 47 78 58</b> · <a href="mailto:techcleaner95@gmail.com">techcleaner95@gmail.com</a>.
+        </div>
+
+        <div class="row g-3" id="tcx-test-body">
+          <div class="col-lg-6">
+            <div class="card h-100">
+              <div class="card-body">
+                <div class="tcc-step">
+                  <div class="num fw-bold">1</div>
+                  <div class="flex-grow-1">
+                    <div class="fw-semibold">Boutons et gâchettes</div>
+                    <div class="small text-muted mb-2">Appuyez <b>une fois sur chaque bouton</b> : il passe au vert quand il répond. Enfoncez les gâchettes LT et RT <b>jusqu'au bout</b>.</div>
+                    <div id="tcx-buttons" class="d-flex flex-wrap gap-1 mb-1"></div>
+                    <div class="small" id="tcx-buttons-count"></div>
+                    <div class="row g-2 mt-1 small">
+                      <div class="col-6" id="tcx-trig-0">Gâchette LT
+                        <div class="progress" style="height: 10px;"><div class="progress-bar" style="width: 0%"></div></div>
+                        <span id="tcx-trig-0-max" class="text-muted"></span></div>
+                      <div class="col-6" id="tcx-trig-1">Gâchette RT
+                        <div class="progress" style="height: 10px;"><div class="progress-bar" style="width: 0%"></div></div>
+                        <span id="tcx-trig-1-max" class="text-muted"></span></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="tcc-step">
+                  <div class="num fw-bold">2</div>
+                  <div class="flex-grow-1">
+                    <div class="fw-semibold">Vibrations</div>
+                    <div id="tcx-rumble-none" class="small text-muted">Les vibrations ne peuvent pas être testées avec ce navigateur.</div>
+                    <div id="tcx-rumble-main" class="mt-1">
+                      <button type="button" class="btn btn-outline-primary btn-sm" onclick="tcx_rumble('main')"><i class="fas fa-wave-square me-1"></i>Tester les vibrations</button>
+                      <span id="tcx-rumble-main-state" class="small ms-1"></span>
+                      <div id="tcx-rumble-main-q" class="small mt-1" style="display: none;">Avez-vous senti la manette vibrer ?
+                        <button type="button" class="btn btn-sm btn-success py-0" onclick="tcx_rumble_answer('main', true)">Oui</button>
+                        <button type="button" class="btn btn-sm btn-danger py-0" onclick="tcx_rumble_answer('main', false)">Non</button></div>
+                    </div>
+                    <div id="tcx-rumble-trigger" class="mt-2">
+                      <button type="button" class="btn btn-outline-primary btn-sm" onclick="tcx_rumble('trigger')"><i class="fas fa-wave-square me-1"></i>Tester les vibrations des gâchettes</button>
+                      <span id="tcx-rumble-trigger-state" class="small ms-1"></span>
+                      <div id="tcx-rumble-trigger-q" class="small mt-1" style="display: none;">Avez-vous senti vibrer les gâchettes ?
+                        <button type="button" class="btn btn-sm btn-success py-0" onclick="tcx_rumble_answer('trigger', true)">Oui</button>
+                        <button type="button" class="btn btn-sm btn-danger py-0" onclick="tcx_rumble_answer('trigger', false)">Non</button></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-6">
+            <div class="card h-100">
+              <div class="card-body">
+                <div class="tcc-step">
+                  <div class="num fw-bold">3</div>
+                  <div class="flex-grow-1">
+                    <div class="fw-semibold">Joysticks</div>
+                    <div class="text-center"><canvas id="tcx-canvas" width="300" height="150"></canvas></div>
+                    <div class="small text-muted mb-1"><b>Drift</b> : lâchez les deux joysticks, puis cliquez. <b>Amplitude</b> : faites des tours complets, joystick à fond.</div>
+                    <div class="d-flex gap-2 flex-wrap">
+                      <button type="button" class="btn btn-outline-primary btn-sm" id="tcx-drift-btn" onclick="tcc_measure_drift()"><i class="fas fa-crosshairs me-1"></i>Tester le drift</button>
+                      <button type="button" class="btn btn-outline-primary btn-sm" id="tcx-circ-btn" onclick="tcc_toggle_circ()"><i class="fas fa-circle-notch me-1"></i>Tester l'amplitude</button>
+                    </div>
+                    <div class="mt-1" id="tcx-drift-status"></div>
+                    <div class="mt-1" id="tcx-circ-status"></div>
+                  </div>
+                </div>
+                <div class="tcc-step">
+                  <div class="num fw-bold">4</div>
+                  <div class="flex-grow-1">
+                    <div class="fw-semibold mb-1">Résultat</div>
+                    <button type="button" class="btn btn-primary" onclick="tcc_show_diagnosis()"><i class="fas fa-clipboard-list me-1"></i>Voir mon pré-diagnostic</button>
+                    <div class="mt-2" id="tcx-result" style="display: none;"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <p class="small text-muted mt-3">Outil gratuit fourni par Tech-Cleaner, sans garantie, non affilié à Microsoft ni Xbox. Aucune donnée n'est envoyée : le test se déroule entièrement dans votre navigateur.</p>
+      </div>
     </div>
 
     <div id="onlinebar" class="vstack p-2" style="display: none;">
