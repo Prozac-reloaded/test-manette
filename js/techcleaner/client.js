@@ -27,11 +27,14 @@ export const CLIENT_CONFIG = {
   centerMaxOffset: 0.06,   // drift toléré au repos (6 %)
   circularityMax: 15,      // circularité tolérée (%)
   centerSampleMs: 3000,
-  circularityMinBins: 40,  // secteurs couverts (sur 48) pour valider une mesure de circularité
+  circularityMinBins: 40,
+
+  warrantyClassic: 3,      // mois, réparation classique manette
+  warrantyTmr: 6,          // mois, upgrade TMR  // secteurs couverts (sur 48) pour valider une mesure de circularité
 
   // Prestations conseillées selon le modèle (prix en €, null = sur devis)
   offers: {
-    DS5:      { sticks: { name: 'Upgrade joysticks TMR (fin du drift)', price: 50 }, other: { name: 'Forfait Réparation DualSense', price: 30 } },
+    DS5:      { sticks: { name: 'Upgrade joysticks TMR DualSense', price: 50 }, other: { name: 'Forfait Réparation DualSense', price: 30 } },
     DS5_Edge: { sticks: { name: 'Upgrade joysticks TMR DualSense Edge', price: 60 }, other: { name: 'Réparation DualSense Edge', price: null } },
     DS4:      { sticks: { name: 'Réparation manette PS4', price: 20 }, other: { name: 'Réparation manette PS4', price: 20 } },
   },
@@ -334,6 +337,35 @@ function priceServices(services) {
   return { lines, total };
 }
 
+/**
+ * Solutions proposées au client.
+ * Joysticks défectueux + upgrade TMR disponible → 2 solutions au choix : réparation classique OU upgrade TMR.
+ */
+function buildOptions(offer, stickIssue, otherIssue) {
+  if (!offer || (!stickIssue && !otherIssue)) return [];
+  const tmrAvailable = offer.sticks.name !== offer.other.name;
+  if (stickIssue && tmrAvailable) {
+    return [
+      {
+        title: 'Réparation classique',
+        desc: 'Remplacement des pièces défectueuses par des pièces standard. Les joysticks classiques s\'usent avec le temps : le drift peut réapparaître.',
+        warranty: CLIENT_CONFIG.warrantyClassic,
+        ...priceServices([offer.other]),
+      },
+      {
+        title: 'Upgrade joysticks TMR',
+        desc: 'Joysticks magnétiques (technologie TMR) : sans frottement, ils ne s\'usent pas et mettent fin au drift.',
+        warranty: CLIENT_CONFIG.warrantyTmr,
+        ...priceServices(otherIssue ? [offer.sticks, offer.other] : [offer.sticks]),
+      },
+    ];
+  }
+  const services = [];
+  if (stickIssue) services.push(offer.sticks);
+  if (otherIssue) services.push(offer.other);
+  return [{ title: null, desc: null, warranty: CLIENT_CONFIG.warrantyClassic, ...priceServices(services) }];
+}
+
 function computeDiagnosis() {
   if (xbox.active) return computeXboxDiagnosis();
   const s = tcSession;
@@ -351,18 +383,16 @@ function computeDiagnosis() {
   if (untested.length) notChecked.push(`${untested.length} test(s) fonctionnel(s) non réalisé(s)`);
   notChecked.push(...sp.notChecked);
 
-  // Prestations conseillées
-  let services = [];
+  // Solutions proposées
+  let options = [];
   const offers = CLIENT_CONFIG.offers[model];
   if (!s.isClone && offers) {
-    if (stickIssue) services.push(offers.sticks);
-    if (otherIssue) services.push(offers.other);
+    options = buildOptions(offers, stickIssue, otherIssue);
   } else if (!s.isClone && (stickIssue || otherIssue)) {
-    services.push({ name: 'Réparation manette', price: null });
+    options = [{ title: null, desc: null, warranty: null, ...priceServices([{ name: 'Réparation manette', price: null }]) }];
   }
-  const { lines, total } = priceServices(services);
 
-  return { problems, notChecked, lines, total, isClone: s.isClone, hasProblem: problems.length > 0 };
+  return { problems, notChecked, options, isClone: s.isClone, hasProblem: problems.length > 0 };
 }
 
 function diagnosisText(d) {
@@ -376,9 +406,13 @@ function diagnosisText(d) {
   ];
   if (d.isClone) out.push('Attention : manette détectée comme non d\'origine.');
   out.push(d.problems.length ? `Problèmes détectés :\n- ${d.problems.join('\n- ')}` : 'Aucun défaut détecté par le test.');
-  if (d.lines.length) {
-    out.push(`Prestation conseillée : ${d.lines.map(l => `${l.name}${l.price != null ? ` (${euros(l.price)}${l.discounted ? ', 2e forfait -50 %' : ''})` : ' (sur devis)'}`).join(' + ')}`);
-    if (d.total != null) out.push(`Estimation : ${euros(d.total)}`);
+  const lineTxt = (o) => o.lines.map(l => `${l.name}${l.price != null ? ` (${euros(l.price)}${l.discounted ? ', 2e forfait -50 %' : ''})` : ' (sur devis)'}`).join(' + ')
+    + (o.total != null && o.lines.length > 1 ? ` = ${euros(o.total)}` : '');
+  if (d.options.length === 1) {
+    out.push(`Prestation conseillée : ${lineTxt(d.options[0])}`);
+  } else if (d.options.length > 1) {
+    out.push('Solutions possibles :');
+    d.options.forEach((o, i) => out.push(`${i + 1}. ${o.title} : ${lineTxt(o)}`));
   }
   return out.join('\n');
 }
@@ -399,14 +433,21 @@ export function tcc_show_diagnosis() {
   } else {
     html += `<div class="alert alert-danger mb-2"><b><i class="fas fa-screwdriver-wrench me-1"></i>Problème(s) détecté(s)</b>
       <ul class="small mb-0 mt-1">${d.problems.map(p => `<li>${esc(p)}</li>`).join('')}</ul></div>`;
-    if (d.lines.length) {
-      html += `<div class="card mb-2"><div class="card-body py-2">
-        <div class="small text-muted mb-1">Prestation conseillée</div>
-        ${d.lines.map(l => `<div class="d-flex justify-content-between"><span>${esc(l.name)}${l.discounted ? ' <span class="badge bg-success">2e forfait -50 %</span>' : ''}</span>
-          <b>${l.price == null ? 'Sur devis' : (l.discounted ? `<s class="text-muted fw-normal me-1">${euros(l.full)}</s>` : '') + euros(l.price)}</b></div>`).join('')}
-        ${d.total != null && d.lines.length > 1 ? `<hr class="my-1"><div class="d-flex justify-content-between"><span>Total estimé</span><b>${euros(d.total)}</b></div>` : ''}
-        <div class="small text-muted mt-1">Estimation indicative. Diagnostic gratuit en atelier, prix confirmé avant toute intervention.</div>
-      </div></div>`;
+    if (d.options.length) {
+      const optionHtml = (o) => `
+        ${o.title ? `<div class="fw-semibold">${esc(o.title)}</div>` : '<div class="small text-muted mb-1">Prestation conseillée</div>'}
+        ${o.desc ? `<div class="small text-muted mb-1">${esc(o.desc)}</div>` : ''}
+        ${o.lines.map(l => `<div class="d-flex justify-content-between gap-2"><span>${esc(l.name)}${l.discounted ? ' <span class="badge bg-success">2e forfait -50 %</span>' : ''}</span>
+          <b class="text-nowrap">${l.price == null ? 'Sur devis' : (l.discounted ? `<s class="text-muted fw-normal me-1">${euros(l.full)}</s>` : '') + euros(l.price)}</b></div>`).join('')}
+        ${o.total != null && o.lines.length > 1 ? `<div class="d-flex justify-content-between border-top mt-1 pt-1"><span>Total estimé</span><b class="text-nowrap">${euros(o.total)}</b></div>` : ''}
+        ${o.warranty ? `<div class="small mt-1"><i class="fas fa-shield-halved me-1 text-success"></i>Garantie ${o.warranty} mois</div>` : ''}`;
+      if (d.options.length === 1) {
+        html += `<div class="card mb-2"><div class="card-body py-2">${optionHtml(d.options[0])}</div></div>`;
+      } else {
+        html += `<div class="small fw-semibold mb-1">Deux solutions possibles, au choix :</div>
+          <div class="row g-2 mb-2">${d.options.map(o => `<div class="col-12"><div class="card h-100"><div class="card-body py-2">${optionHtml(o)}</div></div></div>`).join('')}</div>`;
+      }
+      html += `<div class="small text-muted mb-2">Estimation indicative. Diagnostic gratuit en atelier, prix confirmé avant toute intervention.</div>`;
     }
   }
 
@@ -793,13 +834,8 @@ function computeXboxDiagnosis() {
   if (xbox.rumble === null && rumbleSupport().main) notChecked.push('vibrations non testées');
 
   const offer = CLIENT_CONFIG.xboxModels[xbox.model];
-  const services = [];
-  if (offer) {
-    if (sp.stickIssue) services.push(offer.sticks);
-    if (otherIssue) services.push(offer.other);
-  }
-  const { lines, total } = priceServices(services);
-  return { problems, notChecked, lines, total, isClone: false, hasProblem: problems.length > 0, needModel: !offer && problems.length > 0 };
+  const options = buildOptions(offer, sp.stickIssue, otherIssue);
+  return { problems, notChecked, options, isClone: false, hasProblem: problems.length > 0, needModel: !offer && problems.length > 0 };
 }
 
 // Exposition pour les onclick
