@@ -1,0 +1,150 @@
+<!-- Tech-Cleaner : rapport de bon fonctionnement -->
+<div class="modal fade" id="tcReportModal" tabindex="-1" aria-labelledby="tcReportModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h1 class="modal-title fs-5" id="tcReportModalLabel"><i class="fas fa-file-circle-check me-2"></i>Rapport Tech-Cleaner</h1>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Fermer"></button>
+      </div>
+      <div class="modal-body">
+        <ul class="nav nav-tabs mb-3" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tc-tab-new" type="button" role="tab">Nouveau rapport</button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tc-tab-history" type="button" role="tab">Historique</button>
+          </li>
+        </ul>
+
+        <div class="tab-content">
+          <!-- ===================== Nouveau rapport ===================== -->
+          <div class="tab-pane fade show active" id="tc-tab-new" role="tabpanel">
+            <div class="row g-3">
+              <!-- Colonne gauche : constats automatiques -->
+              <div class="col-lg-6">
+                <div class="card mb-3">
+                  <div class="card-header"><b>1.</b> Manette détectée</div>
+                  <div class="card-body py-2"><dl class="row mb-0 small" id="tc-detected-info"></dl></div>
+                </div>
+
+                <div class="card mb-3">
+                  <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><b>2.</b> Tests fonctionnels</span>
+                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="tc_open_quick_test_from_report()">
+                      <i class="fas fa-vial me-1"></i>Lancer le Quick Test
+                    </button>
+                  </div>
+                  <div class="card-body py-2 small" id="tc-quicktest-summary"></div>
+                </div>
+
+                <div class="card">
+                  <div class="card-header"><b>3.</b> Mesure des joysticks</div>
+                  <div class="card-body">
+                    <div class="text-center"><canvas id="tc-stick-canvas" width="300" height="150"></canvas></div>
+                    <div class="d-flex gap-2 my-2 flex-wrap">
+                      <button type="button" class="btn btn-outline-primary btn-sm" id="tc-center-btn" onclick="tc_measure_center()">
+                        <i class="fas fa-crosshairs me-1"></i>Mesurer le centre (3 s)
+                      </button>
+                      <button type="button" class="btn btn-outline-primary btn-sm" id="tc-circ-btn" onclick="tc_toggle_circularity()">
+                        <i class="fas fa-circle-notch me-1"></i>Mesurer la circularité
+                      </button>
+                    </div>
+                    <div class="small"><b>Centre au repos :</b><div id="tc-center-status" class="text-muted"></div></div>
+                    <div class="small mt-1"><b>Circularité :</b><div id="tc-circ-status" class="text-muted"></div></div>
+                    <div class="small mt-2 text-muted" id="tc-calib-auto"></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Colonne droite : formulaire atelier -->
+              <div class="col-lg-6">
+                <form id="tc-form" onsubmit="return false;">
+                  <div class="card">
+                    <div class="card-header"><b>4.</b> Intervention</div>
+                    <div class="card-body">
+                      <div class="row g-2">
+                        <div class="col-sm-6">
+                          <label class="form-label small mb-0" for="tc-client">Client</label>
+                          <input type="text" class="form-control form-control-sm" id="tc-client" placeholder="Nom du client">
+                        </div>
+                        <div class="col-sm-6">
+                          <label class="form-label small mb-0" for="tc-order">Réf. commande / ticket</label>
+                          <input type="text" class="form-control form-control-sm" id="tc-order" placeholder="ex. CMD-1234">
+                        </div>
+                        <div class="col-sm-6">
+                          <label class="form-label small mb-0" for="tc-tech">Technicien</label>
+                          <input type="text" class="form-control form-control-sm" id="tc-tech" value="Yohan">
+                        </div>
+                        <div class="col-sm-6">
+                          <label class="form-label small mb-0" for="tc-warranty">Garantie</label>
+                          <select class="form-select form-select-sm" id="tc-warranty" onchange="$(this).data('touched', true)">
+                            <option value="3">3 mois (manette / accessoire)</option>
+                            <option value="6">6 mois (upgrade TMR)</option>
+                            <option value="0">Sans garantie (diagnostic seul)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div class="mt-3 small fw-semibold">Travaux réalisés</div>
+                      <div class="row small" id="tc-interventions"></div>
+                      <input type="text" class="form-control form-control-sm mt-1" id="tc-interv-other" placeholder="Autre intervention (facultatif)">
+                      <div class="alert alert-info small py-1 px-2 mt-2 mb-0" id="tc-tmr-code" style="display:none;"></div>
+
+                      <label class="form-label small mb-0 mt-3" for="tc-notes">Observations</label>
+                      <textarea class="form-control form-control-sm" id="tc-notes" rows="3" placeholder="ex. Drift joystick gauche constaté à réception, corrigé par l'upgrade TMR."></textarea>
+
+                      <div class="form-check mt-3 small">
+                        <input class="form-check-input" type="checkbox" id="tc-nonorig" onchange="$('#tc-nonorig-detail').toggle(this.checked)">
+                        <label class="form-check-label" for="tc-nonorig">Éléments non d'origine constatés sur la manette</label>
+                      </div>
+                      <input type="text" class="form-control form-control-sm mt-1" id="tc-nonorig-detail" style="display:none;" placeholder="ex. coque de remplacement, boutons personnalisés…">
+
+                      <label class="form-label small mb-0 mt-3" for="tc-verdict-override">Verdict</label>
+                      <select class="form-select form-select-sm" id="tc-verdict-override">
+                        <option value="auto">Automatique (selon les mesures)</option>
+                        <option value="ok">Conforme</option>
+                        <option value="reserve">Conforme avec réserves</option>
+                        <option value="fail">Non conforme</option>
+                      </select>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+
+          <!-- ===================== Historique ===================== -->
+          <div class="tab-pane fade" id="tc-tab-history" role="tabpanel">
+            <p class="small text-muted mb-2">Les rapports sont conservés dans ce navigateur. Pensez à exporter régulièrement l'historique (sauvegarde JSON + tableau CSV pour Excel).</p>
+            <div class="d-flex gap-2 mb-2">
+              <button type="button" class="btn btn-sm btn-outline-secondary" onclick="tc_export_history()"><i class="fas fa-download me-1"></i>Exporter</button>
+              <label class="btn btn-sm btn-outline-secondary mb-0"><i class="fas fa-upload me-1"></i>Importer une sauvegarde
+                <input type="file" accept=".json,application/json" hidden onchange="tc_import_history(this)">
+              </label>
+            </div>
+            <div class="card mb-3">
+              <div class="card-body py-2">
+                <div class="small fw-semibold mb-1"><i class="fas fa-key me-1"></i>Code de recalibrage TMR (anciens clients)</div>
+                <div class="input-group input-group-sm" style="max-width: 460px;">
+                  <input type="text" class="form-control" id="tc-gen-serial" placeholder="N° de série de la manette (ex. E21N12345678)" onkeydown="if(event.key==='Enter') tc_generate_tmr_code()">
+                  <button class="btn btn-outline-primary" type="button" onclick="tc_generate_tmr_code()">Générer</button>
+                </div>
+                <div class="small mt-1" id="tc-gen-result"></div>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="table table-sm align-middle">
+                <thead><tr><th>Date</th><th>Client</th><th>Manette</th><th>Verdict</th><th></th></tr></thead>
+                <tbody id="tc-history-body"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fermer</button>
+        <button type="button" class="btn btn-success" onclick="tc_generate_report()"><i class="fas fa-file-pdf me-1"></i>Générer le rapport</button>
+      </div>
+    </div>
+  </div>
+</div>
